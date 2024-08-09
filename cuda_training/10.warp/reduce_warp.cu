@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <cooperative_groups.h>
 using namespace cooperative_groups;
+// using namespace std;
 
 #ifdef USE_DP
     typedef double real;
@@ -14,6 +15,12 @@ const int N = 100000000;
 const int M = sizeof(real) * N;
 const int BLOCK_SIZE = 128;
 const unsigned FULL_MASK = 0xffffffff;
+
+real reduce(const real *d_x, const int method);
+void timing(const real *d_x, const int method);
+__global__ void reduce_syncwarp(const real *d_x, real *d_y, const int N);
+__global__ void reduce_shfl(const real *d_x, real *d_y, const int N);
+__global__ void reduce_cp(const real *d_x, real *d_y, const int N);
 
 real reduce(const real *d_x, const int method)
 {
@@ -101,6 +108,51 @@ __global__ void reduce_syncwarp(const real *d_x, real *d_y, const int N){
 
 }
 
+__global__ void reduce_shfl(const real *d_x, real *d_y, const int N){
+    const int tid = threadIdx.x;
+    const int bid = blockIdx.x; 
+    const int n = bid*blockDim.x+tid;
+    extern __shared__ real s_y[];
+    s_y[tid] = (n<N)? d_x[n] : 0.0;
+    __syncthreads();
+    for(int i=blockDim.x/2; i>=32; i/=2){
+        if(tid<i){
+            s_y[tid] += s_y[tid+i];
+        }
+        __syncthreads();
+    }
+    real sum = s_y[tid];
+    for(int offset = 16; offset>0; offset/=2){
+        sum += __shfl_down_sync(FULL_MASK, sum, offset);
+    }
+    if(tid==0){
+        atomicAdd(d_y, sum);
+    }
+}
+
+__global__ void reduce_cp(const real *d_x, real *d_y, const int N){
+    const int tid = threadIdx.x;
+    const int bid = blockIdx.x; 
+    const int n = bid*blockDim.x+tid;
+    extern __shared__ real s_y[];
+    s_y[tid] = (n<N)? d_x[n] : 0.0;
+    __syncthreads();
+    for(int i=blockDim.x/2; i>=32;i/=2){
+        if(tid<i){
+            s_y[tid] += s_y[tid+i];
+        }
+        __syncthreads();
+    }
+    real sum = s_y[tid];
+    thread_block_tile<32> tile = tiled_partition<32>(this_thread_block());
+    for(int offset = tile.size(); offset>0; offset/=2){
+        sum += tile.shfl_down(sum, offset);
+    }
+    
+    if(tid==0){
+        atomicAdd(d_y, sum);
+    }
+}
 
 int main(void)
 {
