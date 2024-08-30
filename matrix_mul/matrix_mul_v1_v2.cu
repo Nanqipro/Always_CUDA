@@ -47,44 +47,35 @@ __global__ void matrix_mul_01(float *A, float *B, float *C, int m, int k, int n)
     }
 }
 
-// 用GPU进行矩阵乘法v2
+// 用GPU进行矩阵乘法v2--使用共享内存和分段方法
 template <int BLOCK_DIM> //模板函数
-__global__ void matrix_mul_02(float *dA, float *dB, float *dC, int M, int K, int N)
+__global__ void matrix_mul_02(float *dA, float *dB, float *dC, int m, int k, int n)
 {
-    int row = threadIdx.x + blockIdx.x * blockDim.x;
-    int col = threadIdx.y + blockIdx.y * blockDim.y;
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
     float tmp = 0.0f;
-    __shared__ float SA[BLOCK_DIM][BLOCK_DIM];
-    __shared__ float SB[BLOCK_DIM][BLOCK_DIM];
-    int width = (K + BLOCK_DIM - 1) / BLOCK_DIM;
-    for (int ph = 0; ph < width; ph++)
-    {
-        if (row < M && threadIdx.y + ph * BLOCK_DIM < K)
-        {
-            SA[threadIdx.x][threadIdx.y] = dA[row * K + threadIdx.y + ph * BLOCK_DIM];
+    __shared__ float s_A[BLOCK_DIM][BLOCK_DIM];
+    __shared__ float s_B[BLOCK_DIM][BLOCK_DIM];
+    int width = (k+ BLOCK_DIM-1)/BLOCK_DIM;
+    for(int i = 0; i < width; i++){
+        if(row< m && i * BLOCK_DIM + threadIdx.y < k){
+            s_A[threadIdx.x][threadIdx.y] = dA[row * k + i * BLOCK_DIM + threadIdx.y];
+        }else{
+            s_A[threadIdx.x][threadIdx.y] = 0.0f;
         }
-        else
-        {
-            SA[threadIdx.x][threadIdx.y] = 0.0f;
-        }
-        if (threadIdx.x + ph * BLOCK_DIM < K && col < N)
-        {
-            SB[threadIdx.x][threadIdx.y] = dB[(threadIdx.x + ph * BLOCK_DIM) * N + col];
-        }
-        else
-        {
-            SB[threadIdx.x][threadIdx.y] = 0.0f;
+        if(col < n && i * BLOCK_DIM + threadIdx.x < k){
+            s_B[threadIdx.x][threadIdx.y] = dB[(i * BLOCK_DIM + threadIdx.x) * n + col];
+        }else{
+            s_B[threadIdx.x][threadIdx.y] = 0.0f;
         }
         __syncthreads();
-        for (int s = 0; s < BLOCK_DIM; s++)
-        {
-            tmp += SA[threadIdx.x][s] * SB[s][threadIdx.y];
+        for(int j = 0; j < BLOCK_DIM; j++){
+            tmp += s_A[threadIdx.x][j] * s_B[j][threadIdx.y];
         }
         __syncthreads();
     }
-    if (row < M && col < N)
-    {
-        dC[row * N + col] = tmp;
+    if(row < m && col < n){
+        dC[row * n + col] = tmp;
     }
 }
 

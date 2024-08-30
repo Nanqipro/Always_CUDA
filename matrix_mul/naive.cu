@@ -20,7 +20,7 @@
 #define K 512
 #define N 512
 
-const int NUM_REPEATS = 100; //重复计算时间的次数
+const int NUM_REPEATS = 100000; //重复计算时间的次数
 
 // 初始化矩阵函数
 void initial(real *array, int size){
