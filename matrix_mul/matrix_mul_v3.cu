@@ -75,10 +75,23 @@ __global__ void matrix_mul_03(float *A, float *B, float *C, int m, int k, int n)
             }
         }
         __syncthreads();
-        
-
-        
-
+        //瓦片的计算
+        for(int i = 0;i < TM;i++){
+            for(int j = 0;j < TN;j++){
+                for(int k = 0;k < BK;k++){
+                    tmp[i*TN+j] += s_A[(threadIdx.x*TM+i)*BK+k] * s_B[k * BN + threadIdx.y * TN + j];
+                }
+            }
+        }
+        __syncthreads();
+    }
+    //存储结果
+    for(int i = 0;i < TM;i++){
+        for(int j = 0;j < TN;j++){
+            if(indA+i < m && indB+j < n){
+                C[(indA+i)*n + indB+j] = tmp[i*TN+j];
+            }
+        }
     }
 }
 
@@ -105,8 +118,9 @@ void hostMatrix(float *A, float *B, float *C, int m, int k, int n){
     dim3 grid_dim(num_blocks_x, num_blocks_y,1);
 
     int NUM_REPEATS = 100;
-    matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+    // matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     // matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+    matrix_mul_03<BM, BN, BK, TM, TN><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     cudaEvent_t start_event, stop_event;
     float kernel_time = 0;
     cudaEventCreate(&start_event);
@@ -114,8 +128,9 @@ void hostMatrix(float *A, float *B, float *C, int m, int k, int n){
     cudaEventRecord(start_event,0);
     
     for(int i = 0; i < NUM_REPEATS; i++){
-        matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+        // matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
         // matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+        matrix_mul_03<BM, BN, BK, TM, TN><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     }
     cudaEventRecord(stop_event,0);
     cudaEventSynchronize(stop_event);
