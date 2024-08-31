@@ -28,14 +28,24 @@ void matrix_mul_naive(float *A, float *B, float *C, int m, int k, int n){
     }
 }
 // 比较两种算法的差异，用于判断是否正确
-float compare(float *hostC, float *serialC, int M, int N)
+void compare(float *hostC, float *serialC, int M, int N)
 {
     float error = 0;
+    bool tmp = true;
     for (int i = 0; i < M * N; i++)
     {
         error = fmax(error, fabs(hostC[i] - serialC[i]));
+        if (error > 1e-5)
+        {
+            tmp = false;
+            printf("error:hostC[%d] = %.3f, serialC[%d] = %.3f\n", i, hostC[i], i, serialC[i]);
+            break;
+        }
     }
-    return error;
+    if (tmp)
+    {
+        printf("GPU output all right\n");
+    }
 }
 
 
@@ -109,15 +119,14 @@ void hostMatrix(float *A, float *B, float *C, int m, int k, int n){
     cudaMemcpy(d_A, A, m * k * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, B, k * n * sizeof(float), cudaMemcpyHostToDevice);
 
-    int BLOCK_DIM_x = 32;
-    int BLOCK_DIM_y = 32;
-    int num_blocks_x = (m + BLOCK_DIM_x - 1) / BLOCK_DIM_x;
-    int num_blocks_y = (n + BLOCK_DIM_y - 1) / BLOCK_DIM_y;
+
+    int num_blocks_x = (m + BM - 1) / BM;
+    int num_blocks_y = (n + BN - 1) / BN;
 
     dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y,1);
     dim3 grid_dim(num_blocks_x, num_blocks_y,1);
 
-    int NUM_REPEATS = 100;
+    int NUM_REPEATS = 20;
     // matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     // matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     matrix_mul_03<BM, BN, BK, TM, TN><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
@@ -132,11 +141,19 @@ void hostMatrix(float *A, float *B, float *C, int m, int k, int n){
         // matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
         matrix_mul_03<BM, BN, BK, TM, TN><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     }
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess)
+    {
+        printf("CUDA Error: %s\n", cudaGetErrorString(err));
+        // Possibly: exit(-1) if program cannot continue....
+    }
+
     cudaEventRecord(stop_event,0);
     cudaEventSynchronize(stop_event);
     cudaEventElapsedTime(&kernel_time, start_event, stop_event);
 
     cudaMemcpy(C, d_C, m * n * sizeof(float), cudaMemcpyDeviceToHost);
+
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);
@@ -178,9 +195,8 @@ int main(int argc, char **argv){
 
     elapsed = get_walltime() - start;
     //比较计算是否正确
-    float error = compare(C, serialC, M, N);
     printf("CPU use time: %.4f second\n", elapsed);
-    printf("error: %.4f\n", error);
+    compare(C, serialC, M, N);
     free(A);
     free(B);
     free(C);
