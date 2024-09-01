@@ -29,7 +29,9 @@ float compare(float *hostC, float *serialC, int M, int N)
     for (int i = 0; i < M * N; i++)
     {
         error = fmax(error, fabs(hostC[i] - serialC[i]));
+        // printf("hostC[%d] = %.3f, serialC[%d] = %.3f\n", i, hostC[i], i, serialC[i]);
     }
+    
     return error;
 }
 
@@ -100,8 +102,8 @@ void hostMatrix(float *A, float *B, float *C, int m, int k, int n){
     dim3 grid_dim(num_blocks_x, num_blocks_y,1);
 
     int NUM_REPEATS = 100;
-    matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
-    // matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+    // matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+    matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     cudaEvent_t start_event, stop_event;
     float kernel_time = 0;
     cudaEventCreate(&start_event);
@@ -109,8 +111,8 @@ void hostMatrix(float *A, float *B, float *C, int m, int k, int n){
     cudaEventRecord(start_event,0);
     
     for(int i = 0; i < NUM_REPEATS; i++){
-        matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
-        // matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+        // matrix_mul_01<<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
+        matrix_mul_02<32><<<grid_dim, block_dim>>>(d_A, d_B, d_C, m, k, n);
     }
     cudaEventRecord(stop_event,0);
     cudaEventSynchronize(stop_event);
