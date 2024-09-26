@@ -235,8 +235,8 @@ bool solve_with_cuda(int *grid) {
                 cudaEventCreate(&stop);
                 cudaEventRecord(start, 0);
                 // 启动 CUDA 线程并行检查候选数字
-                check_candidates<<<1, 9>>>(d_grid, d_candidates, row, col);
-                // isValid(grid, row, col);
+                // check_candidates<<<1, 9>>>(d_grid, d_candidates, row, col);
+                isValid(grid, row, col);
 
                 cudaError_t err = cudaGetLastError();
                 if (err != cudaSuccess)
@@ -252,8 +252,8 @@ bool solve_with_cuda(int *grid) {
                 cudaMemcpy(candidates, d_candidates, 9 * sizeof(int), cudaMemcpyDeviceToHost);
 
                 ela += get_walltime() - st;
-                printf("GPU use time: %.4f second\n", ela);
-                // printf("CPU use time: %.4f second\n", ela);
+                // printf("GPU use time: %.4f second\n", ela);
+                printf("CPU use time: %.4f second\n", ela);
 
                 // 在主机上处理候选结果
                 for (int num = 1; num <= 9; num++) {
@@ -274,7 +274,7 @@ bool solve_with_cuda(int *grid) {
             }
         }
     }
-    printf("GPU tiotal use time: %.4f second\n", ela);
+    printf("CPU or GPU tiotal use time: %.4f second\n", ela);
 
     // 释放设备内存
     cudaFree(d_grid);
