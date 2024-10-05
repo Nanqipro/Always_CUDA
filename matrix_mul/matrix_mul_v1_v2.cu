@@ -31,12 +31,10 @@ float compare(float *hostC, float *serialC, int M, int N)
         error = fmax(error, fabs(hostC[i] - serialC[i]));
         // printf("hostC[%d] = %.3f, serialC[%d] = %.3f\n", i, hostC[i], i, serialC[i]);
     }
-    
     return error;
 }
 
 // 用GPU进行矩阵乘法v1
-
 __global__ void matrix_mul_01(float *A, float *B, float *C, int m, int k, int n){
     int row = threadIdx.x + blockDim.x * blockIdx.x;
     int col = threadIdx.y + blockDim.y * blockIdx.y;
@@ -55,10 +53,15 @@ __global__ void matrix_mul_02(float *dA, float *dB, float *dC, int m, int k, int
 {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int col = blockIdx.y * blockDim.y + threadIdx.y;
+
     float tmp = 0.0f;
+
     __shared__ float s_A[BLOCK_DIM][BLOCK_DIM];
     __shared__ float s_B[BLOCK_DIM][BLOCK_DIM];
+
+    // 向上取整
     int width = (k+ BLOCK_DIM-1)/BLOCK_DIM;
+
     for(int i = 0; i < width; i++){
         if(row< m && i * BLOCK_DIM + threadIdx.y < k){
             s_A[threadIdx.x][threadIdx.y] = dA[row * k + i * BLOCK_DIM + threadIdx.y];
@@ -71,6 +74,7 @@ __global__ void matrix_mul_02(float *dA, float *dB, float *dC, int m, int k, int
             s_B[threadIdx.x][threadIdx.y] = 0.0f;
         }
         __syncthreads();
+        
         for(int j = 0; j < BLOCK_DIM; j++){
             tmp += s_A[threadIdx.x][j] * s_B[j][threadIdx.y];
         }

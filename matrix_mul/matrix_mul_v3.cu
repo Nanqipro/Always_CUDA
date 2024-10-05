@@ -59,14 +59,15 @@ __global__ void matrixKernel1st(float *dA, float *dB, float *dC, int M, int K, i
 {
     __shared__ float SA[BM * BK];
     __shared__ float SB[BK * BN];
+
     int indA = TM * (threadIdx.x + blockIdx.x * blockDim.x);
     int indB = TN * (threadIdx.y + blockIdx.y * blockDim.y);
+
     int width = (K + BK - 1) / BK;
     float tmp[TM * TN] = {0.0f};
 
     for (int ph = 0; ph < width; ph++)
     {
-
         for (int index_q = 0; index_q < TM; index_q++)
         {
             for (int index_k = 0; index_k < BK; index_k++)
@@ -82,6 +83,7 @@ __global__ void matrixKernel1st(float *dA, float *dB, float *dC, int M, int K, i
             }
         }
         __syncthreads();
+        
         for (int index_v = 0; index_v < TN; index_v++)
         {
             for (int index_k = 0; index_k < BK; index_k++)
