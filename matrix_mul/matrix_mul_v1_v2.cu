@@ -2,6 +2,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 
+// 获取当前的墙钟时间（Wall Time）
 double get_walltime()
 {
     struct timeval tp;
