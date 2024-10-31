@@ -126,9 +126,6 @@ __global__ void matrixKernel1st(float *dA, float *dB, float *dC, int M, int K, i
     }
 }
 
-
-
-
 void hostMatrix(float *hostA, float *hostB, float *hostC, int M, int K, int N)
 {
     double st, ela;
