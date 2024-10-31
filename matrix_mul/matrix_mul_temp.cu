@@ -11,7 +11,7 @@ const int BN = TN * BLOCK_DIM_y;
 const int BK = 8;
 
 
-# 矩阵乘法及其优化实现
+// 矩阵乘法及其优化实现
 
 double get_walltime()
 {
